@@ -1,10 +1,25 @@
+import Konva from "konva";
 import React, { useState, useRef } from "react";
-import { Stage, Layer, Line, Text } from "react-konva";
+import { Stage, Layer, Line, Text, Image } from "react-konva";
+import useImage from "use-image";
 
 const Canvas: React.FC = () => {
+  /* The code snippet is using the `useState` and `useRef` hooks from React to manage state in a
+  functional component. */
   const [tool, setTool] = useState<string>("pen");
   const [lines, setLines] = useState<{ tool: string; points: number[] }[]>([]);
+  const [uploadedImage, setUploadedImage] = useState("");
+  const [lineColor, setLineColor] = useState<string>("#000");
+  const [lineWidth, setLineWidth] = useState<number>(5);
   const isDrawing = useRef<boolean>(false);
+  const stageRef = useRef<Konva.Stage | null>(null);
+   const [image, status] = useImage(uploadedImage);
+/**
+ * The handleMouseDown function updates the lines state with a new line object containing the tool and
+ * the starting position of the mouse pointer.
+ * @param {any} e - The parameter "e" is an event object that is passed to the "handleMouseDown"
+ * function. It represents the mouse down event that occurred.
+ */
 
   const handleMouseDown = (e: any) => {
     isDrawing.current = true;
@@ -12,7 +27,13 @@ const Canvas: React.FC = () => {
     setLines([...lines, { tool, points: [pos!.x, pos!.y] }]);
   };
 
-  const handleMouseMove = (e:any) => {
+/**
+ * The function handles mouse movement to draw lines on a canvas.
+ * @param {any} e - The parameter `e` is an event object that contains information about the mouse move
+ * event. It is of type `any`, which means it can be any type of event object.
+ * @returns The function `handleMouseMove` returns nothing (undefined).
+ */
+  const handleMouseMove = (e: any) => {
     // no drawing - skipping
     if (!isDrawing.current) {
       return;
@@ -33,8 +54,56 @@ const Canvas: React.FC = () => {
     isDrawing.current = false;
   };
 
+/**
+ * The `downloadURI` function creates a link element, sets the download attribute and href attribute,
+ * appends it to the document body, triggers a click event on the link, and removes the link from the
+ * document body.
+ * @param {string} uri - The `uri` parameter is a string that represents the URI (Uniform Resource
+ * Identifier) of the file you want to download. It could be a URL pointing to a file on the internet
+ * or a data URI representing the file content directly.
+ * @param {string} name - The `name` parameter is a string that represents the desired name of the
+ * downloaded file.
+ */
+  const downloadURI = (uri: string, name: string) => {
+    const link = document.createElement("a");
+    link.download = name;
+    link.href = uri;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  /**
+   * The function `handleExport` exports the content of a canvas element as a PNG image file.
+   */
+  const handleExport = () => {
+    if (stageRef.current) {
+      const uri = stageRef.current.toDataURL();
+      downloadURI(uri, "canvas.png");
+    }
+  };
+
+ /**
+  * The function `handleImageUpload` is used to handle the upload of an image file and display the
+  * uploaded image.
+  * @param e - The parameter `e` is of type `React.ChangeEvent<HTMLInputElement>`. This is an event
+  * object that is triggered when the value of an input element of type "file" changes. It contains
+  * information about the selected file(s) in the `target.files` property.
+  */
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        setUploadedImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+
   return (
-    <div className="z-10 max-w-5xl w-full font-mono text-sm">
+    <div className="z-10 max-w-7xl w-full font-mono text-sm">
       <select
         value={tool}
         onChange={(e) => {
@@ -50,21 +119,67 @@ const Canvas: React.FC = () => {
         </option>
       </select>
 
+      <div>
+        <button onClick={handleExport}>Click here to log stage data URL</button>
+      </div>
+      <input
+        type="file"
+        accept="image/*"
+        onChange={handleImageUpload}
+        className="mb-4"
+      />
+      <div>
+        {" "}
+        <div className="mb-4">
+          <label htmlFor="lineColor">Line Color: </label>
+          <input
+            type="color"
+            id="lineColor"
+            value={lineColor}
+            onChange={(e) => setLineColor(e.target.value)}
+          />
+        </div>
+        <div className="mb-4">
+          <label htmlFor="lineWidth">Line Width: </label>
+          <input
+            type="number"
+            id="lineWidth"
+            value={lineWidth}
+            onChange={(e) => setLineWidth(Number(e.target.value))}
+            min="1"
+            max="10"
+          />
+        </div>
+      </div>
+
       <Stage
         width={window.innerWidth}
         height={window.innerHeight}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
+        ref={stageRef}
+        style={{ backgroundColor: "#f2f2f2" }}
+        className={isDrawing ? "cursor-crosshair" : ""}
       >
         <Layer>
           <Text text="Just start drawing" x={5} y={30} />
+          {uploadedImage && (
+            <Image
+              image={image}
+              alt={"Image uploaded"}
+              scaleX={0.8}
+              scaleY={0.8}
+            
+            />
+          )}
+
           {lines.map((line, i) => (
             <Line
               key={i}
               points={line.points}
-              stroke="#df4b26"
-              strokeWidth={5}
+              stroke={lineColor}
+              strokeWidth={lineWidth}
               tension={0.5}
               lineCap="round"
               lineJoin="round"
